@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/preserve-manual-memoization */
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { StatusBadge, LoadingSpinner, EmptyState } from '../components/UI';
-import { getAllJobs, searchJobs } from '../api/jobApi';
+import { StatusBadge, LoadingSpinner, EmptyState, Toast, Alert } from '../components/UI';
+import { getAllJobs, searchJobs, addBookmark, removeBookmark, getBookmarksByCandidate } from '../api/jobApi';
 import { hasApplied, submitApplication } from '../api/applicationApi';
 import { useAuth } from '../context/AuthContext';
 
@@ -16,29 +17,56 @@ export default function Jobs() {
   const [filters, setFilters] = useState({ title: '', location: '', category: '', type: '', experienceLevel: '', minSalary: '', maxSalary: '' });
   const [showFilters, setShowFilters] = useState(false);
   const [applying, setApplying] = useState(null);
+  const [bookmarking, setBookmarking] = useState(null);
+  const [savedJobIds, setSavedJobIds] = useState(new Set());
+  const [savedOnly, setSavedOnly] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
   const [applyJobId, setApplyJobId] = useState(null);
   const [toast, setToast] = useState('');
+  const [error, setError] = useState('');
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => { fetchJobs(); }, []);
-
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const res = await getAllJobs();
       setJobs(res.data);
     } catch {
       setJobs([]);
+      setError('Unable to load jobs right now. Please try again in a moment.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const loadSavedJobs = useCallback(async () => {
+    if (user?.role !== 'CANDIDATE' || !user?.userId) {
+      setSavedJobIds(new Set());
+      setSavedOnly(false);
+      return;
+    }
+
+    try {
+      const res = await getBookmarksByCandidate(user.userId);
+      const ids = (res.data || []).map((entry) => entry.jobId);
+      setSavedJobIds(new Set(ids));
+    } catch {
+      setSavedJobIds(new Set());
+    }
+  }, [user?.role, user?.userId]);
+
+  useEffect(() => { fetchJobs(); }, [fetchJobs]);
+
+  useEffect(() => {
+    loadSavedJobs();
+  }, [loadSavedJobs]);
 
   const handleSearch = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
       const params = {};
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
@@ -46,6 +74,7 @@ export default function Jobs() {
       setJobs(res.data);
     } catch {
       setJobs([]);
+      setError('Search failed. Please adjust filters and try again.');
     } finally {
       setLoading(false);
     }
@@ -64,6 +93,7 @@ export default function Jobs() {
       setApplyJobId(jobId);
     } catch {
       setApplying(null);
+      setToast('Unable to validate application status right now.');
     }
   };
 
@@ -79,6 +109,41 @@ export default function Jobs() {
       setApplying(null);
     }
   };
+
+  const toggleBookmark = async (jobId) => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    setBookmarking(jobId);
+    const isSaved = savedJobIds.has(jobId);
+    try {
+      if (isSaved) {
+        await removeBookmark(user.userId, jobId);
+        setSavedJobIds((prev) => {
+          const next = new Set(prev);
+          next.delete(jobId);
+          return next;
+        });
+        setToast('Removed from saved jobs.');
+      } else {
+        await addBookmark(user.userId, jobId, '');
+        setSavedJobIds((prev) => {
+          const next = new Set(prev);
+          next.add(jobId);
+          return next;
+        });
+        setToast('Saved job for later.');
+      }
+    } catch {
+      setToast('Unable to update saved jobs right now.');
+    } finally {
+      setBookmarking(null);
+    }
+  };
+
+  const visibleJobs = savedOnly ? jobs.filter((job) => savedJobIds.has(job.jobId)) : jobs;
 
   const formatSalary = (min, max) => {
     if (!min && !max) return 'Salary not disclosed';
@@ -159,20 +224,35 @@ export default function Jobs() {
                     value={filters.maxSalary} onChange={e => setFilters({...filters, maxSalary: e.target.value})} />
                 </div>
               </div>
-              <button className="text-btn" onClick={() => setFilters({ title: '', location: '', category: '', type: '', experienceLevel: '', minSalary: '', maxSalary: '' })}>
+              <button className="text-btn" onClick={() => { setFilters({ title: '', location: '', category: '', type: '', experienceLevel: '', minSalary: '', maxSalary: '' }); setSavedOnly(false); }}>
                 Clear Filters
               </button>
             </div>
           )}
+
+          {user?.role === 'CANDIDATE' && (
+            <div className="filter-panel jobs-saved-toggle-panel">
+              <label className="jobs-saved-toggle-label">
+                <input
+                  type="checkbox"
+                  checked={savedOnly}
+                  onChange={(e) => setSavedOnly(e.target.checked)}
+                />
+                Show saved jobs only ({savedJobIds.size})
+              </label>
+            </div>
+          )}
         </div>
+
+        <Alert type="error" message={error} />
 
         {/* Job Listings */}
         <div className="jobs-layout">
           <div className="jobs-count">
-            {!loading && <p><strong>{jobs.length}</strong> jobs found</p>}
+            {!loading && <p><strong>{visibleJobs.length}</strong> jobs found</p>}
           </div>
 
-          {loading ? <LoadingSpinner /> : jobs.length === 0 ? (
+          {loading ? <LoadingSpinner /> : visibleJobs.length === 0 ? (
             <EmptyState
               icon="🔍"
               title="No jobs found"
@@ -181,14 +261,26 @@ export default function Jobs() {
             />
           ) : (
             <div className="jobs-grid">
-              {jobs.map(job => (
+              {visibleJobs.map(job => (
                 <div className="job-card" key={job.jobId}>
                   <div className="job-card-header">
                     <div>
                       <h3 className="job-title">{job.title}</h3>
                       <p className="job-company">{job.location || 'Remote'}</p>
                     </div>
-                    <StatusBadge status={job.status} />
+                    <div className="job-card-status-wrap">
+                      {user?.role === 'CANDIDATE' && (
+                        <button
+                          className="icon-btn"
+                          onClick={() => toggleBookmark(job.jobId)}
+                          title={savedJobIds.has(job.jobId) ? 'Unsave job' : 'Save job'}
+                          disabled={bookmarking === job.jobId}
+                        >
+                          {savedJobIds.has(job.jobId) ? '★' : '☆'}
+                        </button>
+                      )}
+                      <StatusBadge status={job.status} />
+                    </div>
                   </div>
                   <p className="job-description">{job.description?.substring(0, 120)}...</p>
                   <div className="job-tags">
@@ -249,7 +341,7 @@ export default function Jobs() {
       )}
 
       {toast && (
-        <div className="toast" onClick={() => setToast('')}>{toast}</div>
+        <Toast message={toast} type="info" onClose={() => setToast('')} />
       )}
     </div>
   );

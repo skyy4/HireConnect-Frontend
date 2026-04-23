@@ -1,29 +1,72 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+/* eslint-disable react-hooks/set-state-in-effect, react-hooks/preserve-manual-memoization */
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from '../components/Navbar';
-import { StatusBadge, LoadingSpinner, EmptyState } from '../components/UI';
+import { StatusBadge, LoadingSpinner, EmptyState, Toast, Modal, Alert } from '../components/UI';
 import { getInterviewsByCandidate, confirmInterview, rescheduleInterview, cancelInterview } from '../api/interviewApi';
+import { getApplicationById } from '../api/applicationApi';
+import { getJobById } from '../api/jobApi';
 import { useAuth } from '../context/AuthContext';
 
 export default function CandidateInterviews() {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [actionId, setActionId] = useState(null);
   const [rescheduleTime, setRescheduleTime] = useState('');
-  const [cancelReason, setCancelReason] = useState('');
   const [toast, setToast] = useState('');
   const [showReschedule, setShowReschedule] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [error, setError] = useState('');
+  const [jobMap, setJobMap] = useState({}); // applicationId → { jobTitle, company }
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+
+  /** Given a list of interviews, fetch the job title for each via application lookup */
+  const fetchJobTitles = useCallback(async (ivs) => {
+    const entries = await Promise.allSettled(
+      ivs.map(async (iv) => {
+        try {
+          const appRes = await getApplicationById(iv.applicationId);
+          const jobId = appRes.data?.jobId;
+          if (!jobId) return [iv.applicationId, null];
+          const jobRes = await getJobById(jobId);
+          return [iv.applicationId, { title: jobRes.data?.title, company: jobRes.data?.company }];
+        } catch {
+          return [iv.applicationId, null];
+        }
+      })
+    );
+    const map = {};
+    entries.forEach(r => {
+      if (r.status === 'fulfilled') {
+        const [appId, info] = r.value;
+        if (info) map[appId] = info;
+      }
+    });
+    setJobMap(prev => ({ ...prev, ...map }));
+  }, []);
+
+  const loadInterviews = useCallback(async () => {
+    if (!user?.userId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setError('');
+      const r = await getInterviewsByCandidate(user.userId);
+      const ivs = r.data || [];
+      setInterviews(ivs);
+      if (ivs.length > 0) fetchJobTitles(ivs);
+    } catch {
+      setInterviews([]);
+      setError('Unable to load interviews right now.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.userId, fetchJobTitles]);
 
   useEffect(() => {
-    if (user?.userId) {
-      getInterviewsByCandidate(user.userId)
-        .then(r => setInterviews(r.data))
-        .catch(() => setInterviews([]))
-        .finally(() => setLoading(false));
-    }
-  }, [user]);
+    loadInterviews();
+  }, [loadInterviews]);
 
   const handleConfirm = async (id) => {
     try {
@@ -47,12 +90,16 @@ export default function CandidateInterviews() {
   };
 
   const handleCancel = async (id) => {
+    setCancelling(true);
     try {
-      const res = await cancelInterview(id, cancelReason || 'Cancelled by candidate');
+      const res = await cancelInterview(id, 'Cancelled by candidate');
       setInterviews(prev => prev.map(i => i.interviewId === id ? res.data : i));
       setToast('Interview cancelled.');
     } catch {
       setToast('Failed to cancel interview.');
+    } finally {
+      setCancelling(false);
+      setCancelTarget(null);
     }
   };
 
@@ -70,6 +117,8 @@ export default function CandidateInterviews() {
           </div>
         </div>
 
+        <Alert type="error" message={error} />
+
         {loading ? <LoadingSpinner /> : interviews.length === 0 ? (
           <EmptyState
             icon="📅"
@@ -86,7 +135,10 @@ export default function CandidateInterviews() {
                     <div className="interview-card" key={iv.interviewId}>
                       <div className="interview-card-header">
                         <div>
-                          <h3>Application #{iv.applicationId}</h3>
+                          <h3>{jobMap[iv.applicationId]?.title || `Interview #${iv.interviewId}`}</h3>
+                          {jobMap[iv.applicationId]?.company && (
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.15rem' }}>{jobMap[iv.applicationId].company}</p>
+                          )}
                           <p className="interview-time">
                             {new Date(iv.scheduledAt).toLocaleString()}
                           </p>
@@ -126,9 +178,7 @@ export default function CandidateInterviews() {
                         <button className="btn-secondary btn-sm" onClick={() => setShowReschedule(iv.interviewId)}>
                           Reschedule
                         </button>
-                        <button className="btn-danger btn-sm" onClick={() => {
-                          if (window.confirm('Cancel this interview?')) handleCancel(iv.interviewId);
-                        }}>
+                        <button className="btn-danger btn-sm" onClick={() => setCancelTarget(iv)}>
                           Cancel
                         </button>
                       </div>
@@ -154,14 +204,17 @@ export default function CandidateInterviews() {
             )}
 
             {past.length > 0 && (
-              <section style={{ marginTop: '2rem' }}>
+              <section className="interviews-past-section">
                 <h2 className="section-title">Past Interviews</h2>
                 <div className="interviews-grid">
                   {past.map(iv => (
                     <div className="interview-card past" key={iv.interviewId}>
                       <div className="interview-card-header">
                         <div>
-                          <h3>Application #{iv.applicationId}</h3>
+                          <h3>{jobMap[iv.applicationId]?.title || `Interview #${iv.interviewId}`}</h3>
+                          {jobMap[iv.applicationId]?.company && (
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.15rem' }}>{jobMap[iv.applicationId].company}</p>
+                          )}
                           <p className="interview-time">{new Date(iv.scheduledAt).toLocaleString()}</p>
                         </div>
                         <StatusBadge status={iv.status} />
@@ -174,7 +227,25 @@ export default function CandidateInterviews() {
           </>
         )}
       </div>
-      {toast && <div className="toast" onClick={() => setToast('')}>{toast}</div>}
+
+      <Modal
+        isOpen={Boolean(cancelTarget)}
+        onClose={() => (cancelling ? null : setCancelTarget(null))}
+        title="Cancel Interview"
+      >
+        <p className="muted profile-modal-copy">
+          Cancel interview for <strong>{cancelTarget ? (jobMap[cancelTarget?.applicationId]?.title || `Interview #${cancelTarget?.interviewId}`) : ''}</strong> scheduled on{' '}
+          <strong>{cancelTarget?.scheduledAt ? new Date(cancelTarget.scheduledAt).toLocaleString() : 'selected time'}</strong>?
+        </p>
+        <div className="btn-row profile-modal-actions">
+          <button className="btn-secondary" onClick={() => setCancelTarget(null)} disabled={cancelling}>Keep Interview</button>
+          <button className="btn-danger" onClick={() => handleCancel(cancelTarget.interviewId)} disabled={cancelling}>
+            {cancelling ? 'Cancelling...' : 'Cancel Interview'}
+          </button>
+        </div>
+      </Modal>
+
+      {toast && <Toast message={toast} type="info" onClose={() => setToast('')} />}
     </div>
   );
 }

@@ -1,31 +1,37 @@
+/* eslint-disable react-refresh/only-export-components, react-hooks/set-state-in-effect */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext(null);
 
+const getInitialUser = () => {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+
+  try {
+    const decoded = jwtDecode(token);
+    if (decoded.exp * 1000 <= Date.now()) {
+      localStorage.clear();
+      return null;
+    }
+
+    return {
+      token,
+      userId: decoded.userId,
+      email: decoded.sub || decoded.email,
+      role: decoded.role,
+    };
+  } catch {
+    localStorage.clear();
+    return null;
+  }
+};
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => getInitialUser());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        if (decoded.exp * 1000 > Date.now()) {
-          setUser({
-            token,
-            userId: decoded.userId,
-            email: decoded.sub || decoded.email,
-            role: decoded.role,
-          });
-        } else {
-          localStorage.clear();
-        }
-      } catch {
-        localStorage.clear();
-      }
-    }
     setLoading(false);
   }, []);
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
-import { StatusBadge, LoadingSpinner, EmptyState } from '../../components/UI';
+import { StatusBadge, LoadingSpinner, EmptyState, Toast, Alert, Modal } from '../../components/UI';
 import { getJobsByRecruiter, updateJobStatus, deleteJob } from '../../api/jobApi';
 import { useAuth } from '../../context/AuthContext';
 
@@ -12,12 +12,21 @@ export default function RecruiterJobs() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
   const [toast, setToast] = useState('');
+  const [error, setError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [closeTarget, setCloseTarget] = useState(null);
+  const [closingJob, setClosingJob] = useState(false);
 
   useEffect(() => {
     if (user?.userId) {
+      setError('');
       getJobsByRecruiter(user.userId)
         .then(r => setJobs(r.data))
-        .catch(() => setJobs([]))
+        .catch(() => {
+          setJobs([]);
+          setError('Unable to load your job postings right now.');
+        })
         .finally(() => setLoading(false));
     }
   }, [user]);
@@ -32,15 +41,27 @@ export default function RecruiterJobs() {
     }
   };
 
-  const handleDelete = async (jobId) => {
-    if (!window.confirm('Delete this job posting?')) return;
+  const handleDelete = async () => {
+    if (!deleteTarget?.jobId) return;
+    setDeleting(true);
     try {
-      await deleteJob(jobId);
-      setJobs(prev => prev.filter(j => j.jobId !== jobId));
+      await deleteJob(deleteTarget.jobId);
+      setJobs(prev => prev.filter(j => j.jobId !== deleteTarget.jobId));
       setToast('Job deleted.');
     } catch {
       setToast('Failed to delete job.');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
+  };
+
+  const handleConfirmClose = async () => {
+    if (!closeTarget?.jobId) return;
+    setClosingJob(true);
+    await handleStatusChange(closeTarget.jobId, 'CLOSED');
+    setClosingJob(false);
+    setCloseTarget(null);
   };
 
   const filtered = filter === 'ALL' ? jobs : jobs.filter(j => j.status === filter);
@@ -66,6 +87,8 @@ export default function RecruiterJobs() {
             </button>
           ))}
         </div>
+
+        <Alert type="error" message={error} />
 
         {loading ? <LoadingSpinner /> : filtered.length === 0 ? (
           <EmptyState
@@ -100,16 +123,49 @@ export default function RecruiterJobs() {
                     <button className="btn-secondary btn-sm" onClick={() => handleStatusChange(job.jobId, 'ACTIVE')}>Activate</button>
                   )}
                   {job.status !== 'CLOSED' && (
-                    <button className="btn-secondary btn-sm" onClick={() => handleStatusChange(job.jobId, 'CLOSED')}>Close</button>
+                    <button className="btn-secondary btn-sm" onClick={() => setCloseTarget(job)}>Close</button>
                   )}
-                  <button className="btn-danger btn-sm" onClick={() => handleDelete(job.jobId)}>Delete</button>
+                  <button className="btn-danger btn-sm" onClick={() => setDeleteTarget(job)}>Delete</button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-      {toast && <div className="toast" onClick={() => setToast('')}>{toast}</div>}
+
+      <Modal
+        isOpen={Boolean(closeTarget)}
+        onClose={() => (closingJob ? null : setCloseTarget(null))}
+        title="Close Job Listing"
+      >
+        <p className="muted" style={{ marginBottom: '1rem' }}>
+          Close <strong>{closeTarget?.title || 'this job'}</strong>? It will stop appearing to candidates in active listings.
+        </p>
+        <div className="btn-row" style={{ marginTop: 0 }}>
+          <button className="btn-secondary" onClick={() => setCloseTarget(null)} disabled={closingJob}>Cancel</button>
+          <button className="btn-danger" onClick={handleConfirmClose} disabled={closingJob}>
+            {closingJob ? 'Closing...' : 'Close Job'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(deleteTarget)}
+        onClose={() => (deleting ? null : setDeleteTarget(null))}
+        title="Delete Job Posting"
+      >
+        <p className="muted" style={{ marginBottom: '1rem' }}>
+          This will permanently remove <strong>{deleteTarget?.title || 'this job'}</strong> and it will no longer appear to candidates.
+        </p>
+        <div className="btn-row" style={{ marginTop: 0 }}>
+          <button className="btn-secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancel</button>
+          <button className="btn-danger" onClick={handleDelete} disabled={deleting}>
+            {deleting ? 'Deleting...' : 'Delete Job'}
+          </button>
+        </div>
+      </Modal>
+
+      {toast && <Toast message={toast} type="info" onClose={() => setToast('')} />}
     </div>
   );
 }

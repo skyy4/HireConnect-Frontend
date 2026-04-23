@@ -24,6 +24,7 @@ export default function RecruiterAnalytics() {
   if (loading) return <div className="page-wrapper"><Navbar /><LoadingSpinner /></div>;
   if (!analytics) return <div className="page-wrapper"><Navbar /><EmptyState icon="📊" title="Analytics Unavailable" message="Could not load analytics data." /></div>;
 
+  const totalApplications = analytics.totalApplications ?? analytics.totalApplicationsReceived ?? 0;
   const vtaRatio = analytics.viewToApplyRatio ? (analytics.viewToApplyRatio * 100).toFixed(1) + '%' : '0%';
 
   return (
@@ -45,7 +46,7 @@ export default function RecruiterAnalytics() {
               <span className="stat-label">Jobs Posted</span>
             </div>
             <div className="stat-card">
-              <span className="stat-num">{analytics.totalApplications}</span>
+              <span className="stat-num">{totalApplications}</span>
               <span className="stat-label">Total Applications Received</span>
             </div>
             <div className="stat-card">
@@ -62,13 +63,13 @@ export default function RecruiterAnalytics() {
                 <span>Total Applications</span>
                 <strong>{analytics.totalApplications}</strong>
              </div>
-             {analytics.totalApplications > 0 && (
+              {totalApplications > 0 && (
                <>
-                 <div className="funnel-stage" style={{width: `${Math.max(15, (analytics.shortlistedCount / analytics.totalApplications) * 100)}%`, background: 'var(--accent-matcha)'}}>
+                  <div className="funnel-stage" style={{width: `${Math.max(15, (analytics.shortlistedCount / totalApplications) * 100)}%`, background: 'var(--accent-matcha)'}}>
                     <span>Shortlisted</span>
                     <strong>{analytics.shortlistedCount}</strong>
                  </div>
-                 <div className="funnel-stage" style={{width: `${Math.max(10, (analytics.offeredCount / analytics.totalApplications) * 100)}%`, background: 'var(--accent-terra)'}}>
+                  <div className="funnel-stage" style={{width: `${Math.max(10, (analytics.offeredCount / totalApplications) * 100)}%`, background: 'var(--accent-terra)'}}>
                     <span>Offers Extended</span>
                     <strong>{analytics.offeredCount}</strong>
                  </div>
@@ -79,8 +80,8 @@ export default function RecruiterAnalytics() {
              <div className="dashboard-card" style={{flex: 1}}>
                 <h3>Rejection Rate</h3>
                 <p className="large-stat" style={{color:'var(--status-rejected-text)'}}>
-                   {analytics.totalApplications > 0 
-                      ? `${((analytics.rejectedCount / analytics.totalApplications) * 100).toFixed(1)}%` 
+                   {totalApplications > 0
+                      ? `${((analytics.rejectedCount / totalApplications) * 100).toFixed(1)}%`
                       : '0%'}
                 </p>
                 <p className="muted">{analytics.rejectedCount} candidates rejected</p>

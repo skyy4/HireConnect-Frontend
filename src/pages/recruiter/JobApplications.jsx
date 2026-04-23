@@ -1,10 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import { StatusBadge, LoadingSpinner, EmptyState } from '../../components/UI';
 import { getByJob, updateStatus } from '../../api/applicationApi';
 import { scheduleInterview } from '../../api/interviewApi';
+import { getCandidateByUserId } from '../../api/profileApi';
 import { getJobById } from '../../api/jobApi';
+
+/** Convert relative /uploads/... path → full API-gateway URL */
+const getResumeFullUrl = (resumeUrl) => {
+  if (!resumeUrl) return null;
+  if (resumeUrl.startsWith('http://') || resumeUrl.startsWith('https://')) return resumeUrl;
+  const gatewayBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1')
+    .replace(/\/api\/v1\/?$/, '');
+  return `${gatewayBase}${resumeUrl}`;
+};
 
 const PIPELINE_STATUSES = ['APPLIED', 'SHORTLISTED', 'INTERVIEW_SCHEDULED', 'OFFERED', 'REJECTED'];
 
@@ -18,13 +28,32 @@ export default function JobApplications() {
   const [scheduleModal, setScheduleModal] = useState(null);
   const [scheduleForm, setScheduleForm] = useState({ scheduledAt: '', mode: 'ONLINE', meetLink: '', location: '', notes: '' });
   const [toast, setToast] = useState('');
+  const [nameMap, setNameMap] = useState({});
+
+  const fetchNames = useCallback(async (apps) => {
+    const ids = [...new Set(apps.map(a => a.candidateId))];
+    const entries = await Promise.allSettled(
+      ids.map(id => getCandidateByUserId(id).then(r => [id, r.data]))
+    );
+    const map = {};
+    entries.forEach(r => {
+      if (r.status === 'fulfilled') {
+        const [id, data] = r.value;
+        map[id] = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.fullName || `Candidate #${id}`;
+      }
+    });
+    setNameMap(prev => ({ ...prev, ...map }));
+  }, []);
 
   useEffect(() => {
     Promise.all([
-      getByJob(jobId).then(r => setApplications(r.data)),
+      getByJob(jobId).then(r => {
+        setApplications(r.data);
+        if (r.data.length > 0) fetchNames(r.data);
+      }),
       getJobById(jobId).then(r => setJob(r.data)),
     ]).catch(() => {}).finally(() => setLoading(false));
-  }, [jobId]);
+  }, [jobId, fetchNames]);
 
   const handleStatusUpdate = async (appId, status) => {
     try {
@@ -92,13 +121,19 @@ export default function JobApplications() {
                 <div className="app-card-left">
                   <div className="company-logo-sm">{app.candidateId}</div>
                   <div>
-                    <h3 className="app-job-title">Candidate #{app.candidateId}</h3>
+                    <h3 className="app-job-title">{nameMap[app.candidateId] || `Candidate #${app.candidateId}`}</h3>
                     <p className="app-meta">Applied {new Date(app.appliedAt).toLocaleDateString()}</p>
                     {app.coverLetter && (
                       <p className="app-cover">{app.coverLetter}</p>
                     )}
                     {app.resumeUrl && (
-                      <a href={app.resumeUrl} target="_blank" rel="noreferrer" className="auth-link" style={{fontSize:'0.85rem'}}>
+                      <a
+                        href={getResumeFullUrl(app.resumeUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="auth-link"
+                        style={{ fontSize: '0.85rem' }}
+                      >
                         📄 Download Resume
                       </a>
                     )}
@@ -122,6 +157,12 @@ export default function JobApplications() {
                         <button className="btn-primary btn-sm" onClick={() => setScheduleModal(app.applicationId)}>
                           Schedule Interview
                         </button>
+                        <button
+                          className="btn-secondary btn-sm"
+                          onClick={() => navigate(`/messages?candidateId=${app.candidateId}&applicationId=${app.applicationId}`)}
+                        >
+                          Message
+                        </button>
                         <button className="btn-danger btn-sm" onClick={() => handleStatusUpdate(app.applicationId, 'REJECTED')}>
                           Reject
                         </button>
@@ -132,10 +173,24 @@ export default function JobApplications() {
                         <button className="btn-primary btn-sm" onClick={() => handleStatusUpdate(app.applicationId, 'OFFERED')}>
                           Extend Offer
                         </button>
+                        <button
+                          className="btn-secondary btn-sm"
+                          onClick={() => navigate(`/messages?candidateId=${app.candidateId}&applicationId=${app.applicationId}`)}
+                        >
+                          Message
+                        </button>
                         <button className="btn-danger btn-sm" onClick={() => handleStatusUpdate(app.applicationId, 'REJECTED')}>
                           Reject
                         </button>
                       </>
+                    )}
+                    {app.status === 'OFFERED' && (
+                      <button
+                        className="btn-secondary btn-sm"
+                        onClick={() => navigate(`/messages?candidateId=${app.candidateId}&applicationId=${app.applicationId}`)}
+                      >
+                        Message
+                      </button>
                     )}
                   </div>
                 </div>

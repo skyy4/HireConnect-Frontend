@@ -1,8 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { LoadingSpinner } from './components/UI';
+import { LoadingSpinner, PageTransition } from './components/UI';
 
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Jobs from './pages/Jobs';
@@ -10,6 +11,9 @@ import JobDetail from './pages/JobDetail';
 import Profile from './pages/Profile';
 import OAuthRedirect from './pages/OAuthRedirect';
 import AdminDashboard from './pages/AdminDashboard';
+import Messages from './pages/Messages';
+import Notifications from './pages/Notifications';
+import SavedJobs from './pages/SavedJobs';
 
 import MyApplications from './pages/MyApplications';
 import CandidateInterviews from './pages/CandidateInterviews';
@@ -23,26 +27,21 @@ import RecruiterInterviews from './pages/recruiter/RecruiterInterviews';
 import RecruiterAnalytics from './pages/recruiter/RecruiterAnalytics';
 import RecruiterSubscription from './pages/recruiter/RecruiterSubscription';
 
-function PrivateRoute({ children, allowedRoles }) {
-  const { user, loading } = useAuth();
-  
-  if (loading) return <div className="full-screen-center"><LoadingSpinner /></div>;
-  if (!user) return <Navigate to="/login" replace />;
-  
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-     return <Navigate to={user.role === 'RECRUITER' ? '/recruiter/dashboard' : '/jobs'} replace />;
-  }
-  
-  return children;
+function AnimatedPage({ children }) {
+  return <PageTransition>{children}</PageTransition>;
 }
 
-function RootRedirect() {
+function PrivateRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
-  if (!user) return <Navigate to="/jobs" replace />;
-  if (user.role === 'ADMIN') return <Navigate to="/admin/dashboard" replace />;
-  if (user.role === 'RECRUITER') return <Navigate to="/recruiter/dashboard" replace />;
-  return <Navigate to="/jobs" replace />;
+
+  if (loading) return <div className="full-screen-center"><LoadingSpinner /></div>;
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to={user.role === 'RECRUITER' ? '/recruiter/dashboard' : '/jobs'} replace />;
+  }
+
+  return children;
 }
 
 function App() {
@@ -50,91 +49,82 @@ function App() {
     <Router>
       <AuthProvider>
         <Routes>
-          {/* Public Auth Routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/oauth-redirect" element={<OAuthRedirect />} />
-          
-          {/* Public Job Routes */}
-          <Route path="/jobs" element={<Jobs />} />
-          <Route path="/jobs/:jobId" element={<JobDetail />} />
+          <Route path="/login" element={<AnimatedPage><Login /></AnimatedPage>} />
+          <Route path="/register" element={<AnimatedPage><Register /></AnimatedPage>} />
+          <Route path="/oauth-redirect" element={<AnimatedPage><OAuthRedirect /></AnimatedPage>} />
 
-          {/* Root redirect */}
-          <Route path="/" element={<RootRedirect />} />
+          <Route path="/jobs" element={<AnimatedPage><Jobs /></AnimatedPage>} />
+          <Route path="/jobs/:jobId" element={<AnimatedPage><JobDetail /></AnimatedPage>} />
 
-          {/* Shared Protected */}
-          <Route path="/profile" element={
-            <PrivateRoute>
-              <Profile />
-            </PrivateRoute>
-          } />
+          <Route path="/" element={<AnimatedPage><Landing /></AnimatedPage>} />
 
-          {/* Candidate Protected */}
-          <Route path="/applications" element={
-            <PrivateRoute allowedRoles={['CANDIDATE']}>
-              <MyApplications />
-            </PrivateRoute>
-          } />
-          <Route path="/interviews" element={
-            <PrivateRoute allowedRoles={['CANDIDATE']}>
-              <CandidateInterviews />
-            </PrivateRoute>
-          } />
+          <Route
+            path="/profile"
+            element={<PrivateRoute><AnimatedPage><Profile /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/messages"
+            element={<PrivateRoute><AnimatedPage><Messages /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/notifications"
+            element={<PrivateRoute><AnimatedPage><Notifications /></AnimatedPage></PrivateRoute>}
+          />
 
-          {/* Recruiter Protected */}
-          <Route path="/recruiter/dashboard" element={
-            <PrivateRoute allowedRoles={['RECRUITER']}>
-              <RecruiterDashboard />
-            </PrivateRoute>
-          } />
-          <Route path="/recruiter/jobs" element={
-            <PrivateRoute allowedRoles={['RECRUITER']}>
-              <RecruiterJobs />
-            </PrivateRoute>
-          } />
-          <Route path="/recruiter/jobs/new" element={
-            <PrivateRoute allowedRoles={['RECRUITER']}>
-              <JobForm />
-            </PrivateRoute>
-          } />
-          <Route path="/recruiter/jobs/:jobId/edit" element={
-            <PrivateRoute allowedRoles={['RECRUITER']}>
-              <JobForm />
-            </PrivateRoute>
-          } />
-          <Route path="/recruiter/jobs/:jobId/applications" element={
-            <PrivateRoute allowedRoles={['RECRUITER']}>
-              <JobApplications />
-            </PrivateRoute>
-          } />
-          <Route path="/recruiter/applications" element={
-            <PrivateRoute allowedRoles={['RECRUITER']}>
-              <RecruiterApplications />
-            </PrivateRoute>
-          } />
-          <Route path="/recruiter/interviews" element={
-            <PrivateRoute allowedRoles={['RECRUITER']}>
-              <RecruiterInterviews />
-            </PrivateRoute>
-          } />
-          <Route path="/recruiter/analytics" element={
-            <PrivateRoute allowedRoles={['RECRUITER']}>
-              <RecruiterAnalytics />
-            </PrivateRoute>
-          } />
-          <Route path="/recruiter/subscription" element={
-            <PrivateRoute allowedRoles={['RECRUITER']}>
-              <RecruiterSubscription />
-            </PrivateRoute>
-          } />
+          <Route
+            path="/applications"
+            element={<PrivateRoute allowedRoles={['CANDIDATE']}><AnimatedPage><MyApplications /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/interviews"
+            element={<PrivateRoute allowedRoles={['CANDIDATE']}><AnimatedPage><CandidateInterviews /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/saved-jobs"
+            element={<PrivateRoute allowedRoles={['CANDIDATE']}><AnimatedPage><SavedJobs /></AnimatedPage></PrivateRoute>}
+          />
 
-          {/* Admin Protected */}
-          <Route path="/admin/dashboard" element={
-            <PrivateRoute allowedRoles={['ADMIN']}>
-              <AdminDashboard />
-            </PrivateRoute>
-          } />
+          <Route
+            path="/recruiter/dashboard"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><RecruiterDashboard /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/recruiter/jobs"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><RecruiterJobs /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/recruiter/jobs/new"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><JobForm /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/recruiter/jobs/:jobId/edit"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><JobForm /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/recruiter/jobs/:jobId/applications"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><JobApplications /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/recruiter/applications"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><RecruiterApplications /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/recruiter/interviews"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><RecruiterInterviews /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/recruiter/analytics"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><RecruiterAnalytics /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/recruiter/subscription"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><RecruiterSubscription /></AnimatedPage></PrivateRoute>}
+          />
 
+          <Route
+            path="/admin/dashboard"
+            element={<PrivateRoute allowedRoles={['ADMIN']}><AnimatedPage><AdminDashboard /></AnimatedPage></PrivateRoute>}
+          />
         </Routes>
       </AuthProvider>
     </Router>

@@ -6,7 +6,6 @@ import { useAuth } from '../../context/AuthContext';
 
 const CATEGORIES = ['Engineering', 'Design', 'Product', 'Marketing', 'Sales', 'Finance', 'HR', 'Operations', 'Other'];
 const JOB_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP', 'REMOTE'];
-const EXP_LEVELS = ['ENTRY', 'MID', 'SENIOR', 'LEAD', 'EXECUTIVE'];
 
 export default function JobForm() {
   const { jobId } = useParams();
@@ -41,7 +40,7 @@ export default function JobForm() {
       }).catch(() => navigate('/recruiter/jobs'))
         .finally(() => setLoading(false));
     }
-  }, [jobId]);
+  }, [isEdit, jobId, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

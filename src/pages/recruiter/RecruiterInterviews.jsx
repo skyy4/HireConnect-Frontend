@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from '../../components/Navbar';
 import { StatusBadge, LoadingSpinner, EmptyState, Modal } from '../../components/UI';
 import { getInterviewsByRecruiter, rescheduleInterview, cancelInterview } from '../../api/interviewApi';
+import { getCandidateByUserId } from '../../api/profileApi';
 import { useAuth } from '../../context/AuthContext';
 
 export default function RecruiterInterviews() {
@@ -11,15 +12,34 @@ export default function RecruiterInterviews() {
   const [showReschedule, setShowReschedule] = useState(null);
   const [rescheduleData, setRescheduleData] = useState({ scheduledAt: '', notes: '' });
   const [toast, setToast] = useState('');
+  const [nameMap, setNameMap] = useState({});
+
+  const fetchNames = useCallback(async (ivs) => {
+    const ids = [...new Set(ivs.map(i => i.candidateId))];
+    const entries = await Promise.allSettled(
+      ids.map(id => getCandidateByUserId(id).then(r => [id, r.data]))
+    );
+    const map = {};
+    entries.forEach(r => {
+      if (r.status === 'fulfilled') {
+        const [id, data] = r.value;
+        map[id] = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.fullName || `Candidate #${id}`;
+      }
+    });
+    setNameMap(prev => ({ ...prev, ...map }));
+  }, []);
 
   useEffect(() => {
     if (user?.userId) {
       getInterviewsByRecruiter(user.userId)
-        .then(r => setInterviews(r.data))
+        .then(r => {
+          setInterviews(r.data);
+          if (r.data.length > 0) fetchNames(r.data);
+        })
         .catch(() => setInterviews([]))
         .finally(() => setLoading(false));
     }
-  }, [user]);
+  }, [user?.userId, fetchNames]);
 
   const handleReschedule = async (e) => {
     e.preventDefault();
@@ -73,7 +93,7 @@ export default function RecruiterInterviews() {
                     <div className="interview-card" key={iv.interviewId}>
                       <div className="interview-card-header">
                         <div>
-                          <h3>Candidate #{iv.candidateId}</h3>
+                          <h3>{nameMap[iv.candidateId] || `Candidate #${iv.candidateId}`}</h3>
                           <p className="interview-time">
                             {new Date(iv.scheduledAt).toLocaleString()}
                           </p>
@@ -107,7 +127,7 @@ export default function RecruiterInterviews() {
                    <div className="interview-card past" key={iv.interviewId}>
                      <div className="interview-card-header" style={{marginBottom: 0}}>
                         <div>
-                          <h4 style={{fontSize:'0.95rem'}}>Candidate #{iv.candidateId}</h4>
+                          <h4 style={{fontSize:'0.95rem'}}>{nameMap[iv.candidateId] || `Candidate #${iv.candidateId}`}</h4>
                           <p className="muted" style={{fontSize:'0.8rem'}}>{new Date(iv.scheduledAt).toLocaleDateString()}</p>
                         </div>
                         <StatusBadge status={iv.status} />

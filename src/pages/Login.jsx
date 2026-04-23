@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login } from '../api/authApi';
+import { Alert } from '../components/UI';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -49,7 +50,7 @@ export default function Login() {
           <h2 className="auth-title">Welcome back</h2>
           <p className="auth-subtitle">Sign in to your account to continue</p>
 
-          {error && <div className="error-alert">{error}</div>}
+          <Alert type="error" message={error} />
 
           <form onSubmit={handleLogin} className="auth-form">
             <div className="form-group">

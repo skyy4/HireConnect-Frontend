@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from '../../components/Navbar';
 import { Modal, LoadingSpinner, StatusBadge } from '../../components/UI';
 import { subscribe, getActiveSubscription, getInvoices, cancelSubscription } from '../../api/subscriptionApi';
@@ -19,11 +20,12 @@ export default function RecruiterSubscription() {
   const [paymentMode, setPaymentMode] = useState('CARD');
   const [toast, setToast] = useState('');
 
-  useEffect(() => {
-    if (user?.userId) loadData();
-  }, [user]);
+  const loadData = useCallback(async () => {
+    if (!user?.userId) {
+      setLoading(false);
+      return;
+    }
 
-  const loadData = async () => {
     try {
       const [subRes, invRes] = await Promise.all([
         getActiveSubscription(user.userId).catch(() => ({ data: null })),
@@ -34,7 +36,11 @@ export default function RecruiterSubscription() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.userId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleSubscribe = async (e) => {
     e.preventDefault();

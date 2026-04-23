@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { register } from '../api/authApi';
 import { createCandidateProfile, createRecruiterProfile } from '../api/profileApi';
+import { Alert } from '../components/UI';
 
 export default function Register() {
   const [step, setStep] = useState(1);
@@ -90,7 +91,7 @@ export default function Register() {
             <div className={`step ${step >= 2 ? 'active' : ''}`}>2<span>Profile</span></div>
           </div>
 
-          {error && <div className="error-alert">{error}</div>}
+          <Alert type="error" message={error} />
 
           {step === 1 && (
             <form onSubmit={handleAuthSubmit} className="auth-form">
@@ -132,7 +133,7 @@ export default function Register() {
                     <path d="M8 12h8"/>
                   </svg>
                   <span>Admin Panel</span>
-                  <small>Mange Platform</small>
+                  <small>Manage Platform</small>
                 </button>
               </div>
 

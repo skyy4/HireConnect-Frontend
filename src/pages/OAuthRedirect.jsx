@@ -23,7 +23,7 @@ export default function OAuthRedirect() {
     } else {
       navigate('/login', { replace: true });
     }
-  }, [location.search, navigate]);
+  }, [location.search, navigate, signIn]);
 
   return (
     <div className="full-screen-center">

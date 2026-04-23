@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { StatusBadge, LoadingSpinner } from '../components/UI';
-import { getJobById } from '../api/jobApi';
+import { StatusBadge, LoadingSpinner, Toast, Alert } from '../components/UI';
+import { getJobById, checkBookmark, addBookmark, removeBookmark } from '../api/jobApi';
 import { hasApplied, submitApplication } from '../api/applicationApi';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,31 +12,41 @@ export default function JobDetail() {
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applied, setApplied] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
   const [coverLetter, setCoverLetter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState('');
+  const [error, setError] = useState('');
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadJob();
-  }, [jobId]);
-
-  const loadJob = async () => {
+  const loadJob = useCallback(async () => {
+    setError('');
     try {
-      const res = await getJobById(jobId);
+      const res = await getJobById(jobId, { params: { viewerId: user?.userId } });
       setJob(res.data);
-      if (user) {
-        const check = await hasApplied(jobId, user.userId);
-        setApplied(check.data.applied);
+      if (user && user.role === 'CANDIDATE') {
+        const checkApp = await hasApplied(jobId, user.userId);
+        setApplied(checkApp.data.applied);
+        
+        try {
+           const checkBkm = await checkBookmark(user.userId, jobId);
+           setBookmarked(checkBkm.data.bookmarked);
+         } catch {
+           setBookmarked(false);
+         }
       }
     } catch {
-      navigate('/jobs');
+      setError('We could not load this job right now.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobId, user]);
+
+  useEffect(() => {
+    loadJob();
+  }, [loadJob]);
 
   const handleApply = async () => {
     if (!user) { navigate('/login'); return; }
@@ -56,6 +67,23 @@ export default function JobDetail() {
     }
   };
 
+  const toggleBookmark = async () => {
+    if (!user) { navigate('/login'); return; }
+    try {
+      if (bookmarked) {
+        await removeBookmark(user.userId, jobId);
+        setBookmarked(false);
+        setToast('Job removed from saved list');
+      } else {
+        await addBookmark(user.userId, jobId, '');
+        setBookmarked(true);
+        setToast('Job saved successfully!');
+      }
+    } catch {
+      setToast('Failed to update bookmark');
+    }
+  };
+
   const formatSalary = (min, max) => {
     if (!min && !max) return 'Not disclosed';
     if (min && max) return `₹${(min/100000).toFixed(1)}L – ₹${(max/100000).toFixed(1)}L per year`;
@@ -63,7 +91,17 @@ export default function JobDetail() {
   };
 
   if (loading) return <div className="page-wrapper"><Navbar /><LoadingSpinner /></div>;
-  if (!job) return null;
+  if (!job) {
+    return (
+      <div className="page-wrapper">
+        <Navbar />
+        <div className="page-content">
+          <Alert type="error" message={error || 'Job not found.'} />
+          <button className="btn-secondary" onClick={() => navigate('/jobs')}>Back to jobs</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-wrapper">
@@ -83,7 +121,18 @@ export default function JobDetail() {
                   {job.location || 'Remote'} · {job.type?.replace('_', ' ')} · Posted {new Date(job.postedAt).toLocaleDateString()}
                 </p>
               </div>
-              <StatusBadge status={job.status} />
+              <div className="job-detail-status-wrap">
+                {user?.role === 'CANDIDATE' && (
+                  <button 
+                    onClick={toggleBookmark}
+                    className={`icon-btn job-detail-bookmark-btn ${bookmarked ? 'active' : ''}`}
+                    title={bookmarked ? "Unsave Job" : "Save Job"}
+                  >
+                    {bookmarked ? '★' : '☆'}
+                  </button>
+                )}
+                <StatusBadge status={job.status} />
+              </div>
             </div>
 
             <div className="job-detail-section">
@@ -169,7 +218,7 @@ export default function JobDetail() {
         </div>
       )}
 
-      {toast && <div className="toast" onClick={() => setToast('')}>{toast}</div>}
+      {toast && <Toast message={toast} type="info" onClose={() => setToast('')} />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import { LoadingSpinner, StatusBadge } from '../../components/UI';
@@ -15,11 +15,9 @@ export default function RecruiterDashboard() {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user?.userId) loadData();
-  }, [user]);
+  const loadData = useCallback(async () => {
+    if (!user?.userId) return;
 
-  const loadData = async () => {
     try {
       await Promise.allSettled([
         getJobsByRecruiter(user.userId).then(r => setJobs(r.data)).catch(() => {}),
@@ -29,9 +27,14 @@ export default function RecruiterDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.userId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const activeJobs = jobs.filter(j => j.status === 'ACTIVE').length;
+  const totalApplications = analytics?.totalApplications ?? analytics?.totalApplicationsReceived ?? 0;
 
   return (
     <div className="page-wrapper">
@@ -61,7 +64,7 @@ export default function RecruiterDashboard() {
                 <span className="stat-label">Active Listings</span>
               </div>
               <div className="stat-card">
-                <span className="stat-num">{analytics?.totalApplications || 0}</span>
+                <span className="stat-num">{totalApplications}</span>
                 <span className="stat-label">Total Applications</span>
               </div>
               <div className="stat-card">
