@@ -15,17 +15,17 @@ async function resolveUserName(userId, role) {
     if (role === 'RECRUITER') {
       const r = await getCandidateByUserId(userId);
       const p = r.data;
-      return [p.firstName, p.lastName].filter(Boolean).join(' ') || p.fullName || `User ${userId}`;
+      return p.fullName || p.companyName || `User ${userId}`;
     } else {
       // Try candidate first, then recruiter
       try {
         const r = await getCandidateByUserId(userId);
         const p = r.data;
-        return [p.firstName, p.lastName].filter(Boolean).join(' ') || p.fullName || `User ${userId}`;
+        return p.fullName || p.companyName || `User ${userId}`;
       } catch {
         const r = await getRecruiterByUserId(userId);
         const p = r.data;
-        return p.companyName || [p.firstName, p.lastName].filter(Boolean).join(' ') || `User ${userId}`;
+        return p.fullName || p.companyName || `User ${userId}`;
       }
     }
   } catch {

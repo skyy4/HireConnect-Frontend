@@ -4,6 +4,7 @@ export const NAV_LINKS_BY_ROLE = {
     { to: '/jobs', label: 'Browse Jobs' },
   ],
   CANDIDATE: [
+    { to: '/dashboard',    label: 'Dashboard'    },
     { to: '/jobs',         label: 'Jobs'         },
     { to: '/saved-jobs',   label: 'Saved'        },
     { to: '/applications', label: 'Applications' },
@@ -16,6 +17,7 @@ export const NAV_LINKS_BY_ROLE = {
     { to: '/recruiter/applications', label: 'Applications' },
     { to: '/recruiter/interviews',   label: 'Interviews'   },
     { to: '/recruiter/analytics',    label: 'Analytics'    },
+    { to: '/recruiter/team',         label: 'Team'         },
     { to: '/recruiter/subscription', label: 'Billing'      },
   ],
   ADMIN: [
@@ -25,7 +27,7 @@ export const NAV_LINKS_BY_ROLE = {
 };
 
 export const HOME_PATH_BY_ROLE = {
-  CANDIDATE: '/jobs',
+  CANDIDATE: '/dashboard',
   RECRUITER: '/recruiter/dashboard',
   ADMIN: '/admin/dashboard',
 };

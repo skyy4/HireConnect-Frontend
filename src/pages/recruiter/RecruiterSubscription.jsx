@@ -1,8 +1,11 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from '../../components/Navbar';
-import { Modal, LoadingSpinner, StatusBadge } from '../../components/UI';
-import { subscribe, getActiveSubscription, getInvoices, cancelSubscription } from '../../api/subscriptionApi';
+import { LoadingSpinner, StatusBadge, Toast } from '../../components/UI';
+import {
+  subscribe, getActiveSubscription, getInvoices, cancelSubscription,
+  createRazorpayOrder, verifyRazorpayPayment
+} from '../../api/subscriptionApi';
 import { useAuth } from '../../context/AuthContext';
 
 const PLANS = [
@@ -16,8 +19,7 @@ export default function RecruiterSubscription() {
   const [activePlan, setActivePlan] = useState(null);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCheckout, setShowCheckout] = useState(null);
-  const [paymentMode, setPaymentMode] = useState('CARD');
+  const [processing, setProcessing] = useState(null); // planId being processed
   const [toast, setToast] = useState('');
 
   const loadData = useCallback(async () => {
@@ -42,16 +44,81 @@ export default function RecruiterSubscription() {
     loadData();
   }, [loadData]);
 
-  const handleSubscribe = async (e) => {
-    e.preventDefault();
+  // ── Razorpay Checkout Flow ─────────────────────────────────────────────
+  const handlePayWithRazorpay = async (plan) => {
+    if (plan.price === 0) {
+      // Free plan — subscribe directly
+      try {
+        await subscribe(user.userId, plan.id, 'FREE', 0);
+        setToast(`Subscribed to ${plan.name} plan!`);
+        loadData();
+      } catch {
+        setToast('Subscription failed.');
+      }
+      return;
+    }
+
+    setProcessing(plan.id);
     try {
-      const plan = PLANS.find(p => p.id === showCheckout);
-      await subscribe(user.userId, plan.id, paymentMode, plan.price);
-      setToast(`Subscribed to ${plan.name} plan!`);
-      setShowCheckout(null);
-      loadData();
+      // Step 1: Create Razorpay order on our backend
+      const orderRes = await createRazorpayOrder(user.userId, plan.id, plan.price);
+      const order = orderRes.data;
+
+      // Step 2: Open Razorpay checkout modal
+      const options = {
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency || 'INR',
+        name: 'HireConnect',
+        description: `${plan.name} Plan Subscription`,
+        order_id: order.orderId,
+        handler: async function (response) {
+          // Step 3: Verify payment on our backend
+          try {
+            const verifyRes = await verifyRazorpayPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              recruiterId: user.userId,
+              plan: plan.id,
+              amount: plan.price,
+            });
+
+            if (verifyRes.data.verified) {
+              setToast(`✅ Payment successful! Subscribed to ${plan.name} plan.`);
+              loadData();
+            } else {
+              setToast('❌ Payment verification failed. Contact support.');
+            }
+          } catch {
+            setToast('❌ Payment verification failed. Please contact support.');
+          }
+          setProcessing(null);
+        },
+        prefill: {
+          email: user?.email || '',
+          contact: '',
+        },
+        theme: {
+          color: '#4f46e5',
+        },
+        modal: {
+          ondismiss: function () {
+            setProcessing(null);
+            setToast('Payment cancelled.');
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        setToast(`❌ Payment failed: ${response.error.description}`);
+        setProcessing(null);
+      });
+      rzp.open();
     } catch {
-      setToast('Subscription failed.');
+      setToast('Failed to initiate payment. Please try again.');
+      setProcessing(null);
     }
   };
 
@@ -106,16 +173,29 @@ export default function RecruiterSubscription() {
                 {plan.features.map(f => <li key={f}>✓ {f}</li>)}
               </ul>
               {activePlan?.plan !== plan.id && (
-                <button className="btn-primary btn-full" onClick={() => setShowCheckout(plan.id)}>
-                   Upgrade to {plan.name}
+                <button
+                  className="btn-primary btn-full"
+                  onClick={() => handlePayWithRazorpay(plan)}
+                  disabled={processing === plan.id}
+                >
+                  {processing === plan.id
+                    ? 'Processing...'
+                    : plan.price === 0
+                      ? 'Select Free Plan'
+                      : `Pay ₹${plan.price.toLocaleString()} with Razorpay`}
                 </button>
               )}
             </div>
           ))}
         </div>
 
+        {/* Razorpay badge */}
+        <div style={{textAlign:'center', margin:'2rem 0 1rem', opacity:0.5, fontSize:'0.85rem'}}>
+          🔒 Payments secured by Razorpay · Test Mode
+        </div>
+
         {invoices.length > 0 && (
-          <section style={{marginTop: '4rem'}}>
+          <section style={{marginTop: '3rem'}}>
             <h2 className="section-title">Billing History</h2>
             <div className="jobs-table">
               <div className="table-header">
@@ -123,14 +203,16 @@ export default function RecruiterSubscription() {
                 <span>Date</span>
                 <span>Amount</span>
                 <span>Payment Mode</span>
+                <span>Transaction ID</span>
                 <span>Status</span>
               </div>
               {invoices.map(inv => (
                 <div className="table-row" key={inv.invoiceId}>
                   <strong>#{inv.invoiceId}</strong>
-                  <span>{new Date(inv.paymentDate).toLocaleDateString()}</span>
-                  <span>₹{inv.amount.toLocaleString()}</span>
+                  <span>{new Date(inv.paymentDate || inv.createdAt).toLocaleDateString()}</span>
+                  <span>₹{(inv.amount || 0).toLocaleString()}</span>
                   <span>{inv.paymentMode}</span>
+                  <span style={{fontSize:'0.8rem', opacity:0.7}}>{inv.transactionId ? inv.transactionId.substring(0, 16) + '...' : '—'}</span>
                   <StatusBadge status="ACTIVE" />
                 </div>
               ))}
@@ -139,34 +221,7 @@ export default function RecruiterSubscription() {
         )}
       </div>
 
-      <Modal isOpen={!!showCheckout} onClose={() => setShowCheckout(null)} title="Complete Purchase">
-         <div style={{marginBottom:'1.5rem'}}>
-            You are subscribing to the <strong>{PLANS.find(p => p.id === showCheckout)?.name}</strong> plan for
-            <strong> ₹{PLANS.find(p => p.id === showCheckout)?.price.toLocaleString()}/month</strong>.
-         </div>
-         <form onSubmit={handleSubscribe}>
-            <div className="form-group">
-               <label className="form-label">Payment Method</label>
-               <select className="form-input" value={paymentMode} onChange={e => setPaymentMode(e.target.value)}>
-                  <option value="CARD">Credit / Debit Card</option>
-                  <option value="UPI">UPI</option>
-                  <option value="WALLET">HireConnect Wallet</option>
-               </select>
-            </div>
-            {(paymentMode === 'CARD' || paymentMode === 'UPI') && (
-              <div className="form-group">
-                 <label className="form-label">{paymentMode === 'CARD' ? 'Card Details (Demo)' : 'UPI ID (Demo)'}</label>
-                 <input type="text" className="form-input" placeholder={paymentMode==='CARD'?"XXXX-XXXX-XXXX-XXXX":"user@upi"} />
-              </div>
-            )}
-            <div className="btn-row">
-               <button type="button" className="btn-secondary" onClick={() => setShowCheckout(null)}>Cancel</button>
-               <button type="submit" className="btn-primary">Pay Securely</button>
-            </div>
-         </form>
-      </Modal>
-
-      {toast && <div className="toast" onClick={() => setToast('')}>{toast}</div>}
+      {toast && <Toast message={toast} type="info" onClose={() => setToast('')} />}
     </div>
   );
 }

@@ -7,21 +7,21 @@ function LogoIcon({ size = 28 }) {
     <svg width={size} height={size} viewBox="0 0 64 64" fill="none">
       <defs>
         <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#2563eb"/>
-          <stop offset="100%" stopColor="#7c3aed"/>
+          <stop offset="0%" stopColor="#2563eb" />
+          <stop offset="100%" stopColor="#7c3aed" />
         </linearGradient>
       </defs>
-      <rect width="64" height="64" rx="14" fill="url(#lg1)"/>
-      <circle cx="32" cy="24" r="8" stroke="white" strokeWidth="3.5" fill="none"/>
-      <path d="M16 52c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="white" strokeWidth="3.5" strokeLinecap="round" fill="none"/>
-      <circle cx="9"  cy="16" r="3.5" fill="white" fillOpacity="0.85"/>
-      <circle cx="55" cy="16" r="3.5" fill="white" fillOpacity="0.85"/>
-      <circle cx="9"  cy="48" r="3.5" fill="white" fillOpacity="0.85"/>
-      <circle cx="55" cy="48" r="3.5" fill="white" fillOpacity="0.85"/>
-      <line x1="12" y1="17" x2="22" y2="21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.8"/>
-      <line x1="52" y1="17" x2="42" y2="21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.8"/>
-      <line x1="12" y1="47" x2="22" y2="41" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.8"/>
-      <line x1="52" y1="47" x2="42" y2="41" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.8"/>
+      <rect width="64" height="64" rx="14" fill="url(#lg1)" />
+      <circle cx="32" cy="24" r="8" stroke="white" strokeWidth="3.5" fill="none" />
+      <path d="M16 52c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="white" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+      <circle cx="9" cy="16" r="3.5" fill="white" fillOpacity="0.85" />
+      <circle cx="55" cy="16" r="3.5" fill="white" fillOpacity="0.85" />
+      <circle cx="9" cy="48" r="3.5" fill="white" fillOpacity="0.85" />
+      <circle cx="55" cy="48" r="3.5" fill="white" fillOpacity="0.85" />
+      <line x1="12" y1="17" x2="22" y2="21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.8" />
+      <line x1="52" y1="17" x2="42" y2="21" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.8" />
+      <line x1="12" y1="47" x2="22" y2="41" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.8" />
+      <line x1="52" y1="47" x2="42" y2="41" stroke="white" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.8" />
     </svg>
   );
 }
@@ -59,13 +59,12 @@ const Landing = () => {
             <span>HireConnect</span>
           </Link>
           <div className="landing-links">
-            <a href="#features"  className="landing-link">Features</a>
-            <a href="#process"   className="landing-link">How it Works</a>
-            <a href="#pricing"   className="landing-link">Pricing</a>
-            <Link to="/jobs"     className="landing-link">Browse Jobs</Link>
+            <a href="#features" className="landing-link">Features</a>
+            <a href="#process" className="landing-link">How it Works</a>
+            <Link to="/jobs" className="landing-link">Browse Jobs</Link>
           </div>
           <div className="landing-actions">
-            <Link to="/login"    className="btn-outline">Log in</Link>
+            <Link to="/login" className="btn-outline">Log in</Link>
             <Link to="/register" className="btn-glow">Get Started →</Link>
           </div>
         </div>
@@ -182,61 +181,7 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* ── Pricing ── */}
-      <section id="pricing" className="pricing-sec">
-        <div className="section-head">
-          <div className="section-pill">Pricing</div>
-          <h2>Transparent, straightforward pricing</h2>
-          <p>No hidden fees. All candidate features are always free.</p>
-        </div>
-        <div className="pricing-grid-landing">
-          <div className="price-card-l">
-            <h3>Candidate</h3>
-            <div className="amt">Free<span> forever</span></div>
-            <ul>
-              <li>Browse & apply to all jobs</li>
-              <li>Upload resume & profile</li>
-              <li>Direct messaging with recruiters</li>
-              <li>Interview scheduling</li>
-              <li>Application status tracking</li>
-            </ul>
-            <button className="btn-outline btn-full" onClick={() => navigate('/register')}>
-              Sign Up Free
-            </button>
-          </div>
 
-          <div className="price-card-l featured">
-            <div className="price-badge">For Recruiters</div>
-            <h3 style={{ color: 'var(--accent)' }}>Professional</h3>
-            <div className="amt">$49<span>/month</span></div>
-            <ul>
-              <li>Up to 10 active job listings</li>
-              <li>Full application pipeline management</li>
-              <li>Interview scheduling & tracking</li>
-              <li>Direct messaging with candidates</li>
-              <li>Recruitment analytics dashboard</li>
-              <li>Team collaboration (5 seats)</li>
-            </ul>
-            <button className="btn-glow btn-full" onClick={() => navigate('/register')}>
-              Get Started
-            </button>
-          </div>
-
-          <div className="price-card-l">
-            <h3>Enterprise</h3>
-            <div className="amt">$199<span>/month</span></div>
-            <ul>
-              <li>Unlimited active job listings</li>
-              <li>Unlimited team members</li>
-              <li>Priority support</li>
-              <li>Custom onboarding</li>
-            </ul>
-            <button className="btn-outline btn-full" onClick={() => navigate('/register')}>
-              Contact Us
-            </button>
-          </div>
-        </div>
-      </section>
 
       {/* ── FAQ ── */}
       <section className="faq-section">
@@ -303,7 +248,6 @@ const Landing = () => {
             <h4>Platform</h4>
             <ul>
               <li><a href="#features">Features</a></li>
-              <li><a href="#pricing">Pricing</a></li>
               <li><Link to="/jobs">Browse Jobs</Link></li>
             </ul>
           </div>

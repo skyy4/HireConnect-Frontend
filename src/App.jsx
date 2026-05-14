@@ -17,6 +17,7 @@ import SavedJobs from './pages/SavedJobs';
 
 import MyApplications from './pages/MyApplications';
 import CandidateInterviews from './pages/CandidateInterviews';
+import Dashboard from './pages/Dashboard';
 
 import RecruiterDashboard from './pages/recruiter/RecruiterDashboard';
 import RecruiterJobs from './pages/recruiter/RecruiterJobs';
@@ -26,6 +27,7 @@ import RecruiterApplications from './pages/recruiter/RecruiterApplications';
 import RecruiterInterviews from './pages/recruiter/RecruiterInterviews';
 import RecruiterAnalytics from './pages/recruiter/RecruiterAnalytics';
 import RecruiterSubscription from './pages/recruiter/RecruiterSubscription';
+import TeamManagement from './pages/recruiter/TeamManagement';
 
 function AnimatedPage({ children }) {
   return <PageTransition>{children}</PageTransition>;
@@ -83,6 +85,10 @@ function App() {
             path="/saved-jobs"
             element={<PrivateRoute allowedRoles={['CANDIDATE']}><AnimatedPage><SavedJobs /></AnimatedPage></PrivateRoute>}
           />
+          <Route
+            path="/dashboard"
+            element={<PrivateRoute allowedRoles={['CANDIDATE']}><AnimatedPage><Dashboard /></AnimatedPage></PrivateRoute>}
+          />
 
           <Route
             path="/recruiter/dashboard"
@@ -119,6 +125,10 @@ function App() {
           <Route
             path="/recruiter/subscription"
             element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><RecruiterSubscription /></AnimatedPage></PrivateRoute>}
+          />
+          <Route
+            path="/recruiter/team"
+            element={<PrivateRoute allowedRoles={['RECRUITER']}><AnimatedPage><TeamManagement /></AnimatedPage></PrivateRoute>}
           />
 
           <Route

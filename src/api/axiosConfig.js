@@ -8,6 +8,31 @@ const api = axios.create({
 let isRefreshing = false;
 let refreshQueue = [];
 
+const AUTH_STORAGE_KEYS = ['token', 'refreshToken'];
+
+const unwrapApiResponse = (payload) => (payload && typeof payload === 'object' && 'data' in payload && 'success' in payload
+  ? payload.data
+  : payload);
+
+export const clearAuthStorage = () => {
+  AUTH_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+};
+
+export const persistAuthSession = ({ token, refreshToken }) => {
+  if (token) {
+    localStorage.setItem('token', token);
+  }
+  if (refreshToken) {
+    localStorage.setItem('refreshToken', refreshToken);
+  }
+};
+
+export const refreshAuthSession = async (refreshToken) => {
+  const response = await axios.post(getRefreshEndpoint(), { refreshToken });
+  response.data = unwrapApiResponse(response.data);
+  return response;
+};
+
 const flushRefreshQueue = (token) => {
   refreshQueue.forEach((cb) => cb(token));
   refreshQueue = [];
@@ -25,14 +50,17 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    response.data = unwrapApiResponse(response.data);
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config || {};
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
-        localStorage.clear();
+        clearAuthStorage();
         window.location.href = '/login';
         return Promise.reject(error);
       }
@@ -55,18 +83,18 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshRes = await axios.post(getRefreshEndpoint(), { refreshToken });
+        const refreshRes = await refreshAuthSession(refreshToken);
         const nextToken = refreshRes.data?.token;
         const nextRefresh = refreshRes.data?.refreshToken;
 
         if (!nextToken) {
-          throw new Error('No access token returned from refresh endpoint');
+          flushRefreshQueue(null);
+          clearAuthStorage();
+          window.location.href = '/login';
+          return Promise.reject(new Error('No access token returned from refresh endpoint'));
         }
 
-        localStorage.setItem('token', nextToken);
-        if (nextRefresh) {
-          localStorage.setItem('refreshToken', nextRefresh);
-        }
+        persistAuthSession({ token: nextToken, refreshToken: nextRefresh });
 
         flushRefreshQueue(nextToken);
         originalRequest.headers = originalRequest.headers || {};
@@ -74,7 +102,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         flushRefreshQueue(null);
-        localStorage.clear();
+        clearAuthStorage();
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
@@ -83,7 +111,7 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      localStorage.clear();
+      clearAuthStorage();
       window.location.href = '/login';
     }
     return Promise.reject(error);

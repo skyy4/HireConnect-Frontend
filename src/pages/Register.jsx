@@ -75,9 +75,17 @@ export default function Register() {
       <div className="auth-container">
         <div className="auth-brand">
           <div className="auth-brand-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
-              <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+            <svg width="28" height="28" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="22" r="8" stroke="currentColor" strokeWidth="3.5" fill="none"/>
+              <path d="M16 52c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" fill="none"/>
+              <circle cx="9"  cy="16" r="3.5" fill="currentColor"/>
+              <circle cx="55" cy="16" r="3.5" fill="currentColor"/>
+              <circle cx="9"  cy="48" r="3.5" fill="currentColor"/>
+              <circle cx="55" cy="48" r="3.5" fill="currentColor"/>
+              <line x1="12" y1="17" x2="22" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="52" y1="17" x2="42" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="12" y1="47" x2="22" y2="41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="52" y1="47" x2="42" y2="41" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </div>
           <h1 className="auth-brand-name">HireConnect</h1>

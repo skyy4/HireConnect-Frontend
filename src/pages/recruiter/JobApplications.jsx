@@ -28,7 +28,8 @@ export default function JobApplications() {
   const [scheduleModal, setScheduleModal] = useState(null);
   const [scheduleForm, setScheduleForm] = useState({ scheduledAt: '', mode: 'ONLINE', meetLink: '', location: '', notes: '' });
   const [toast, setToast] = useState('');
-  const [nameMap, setNameMap] = useState({});
+  const [profilesMap, setProfilesMap] = useState({});
+  const [selectedProfile, setSelectedProfile] = useState(null);
 
   const fetchNames = useCallback(async (apps) => {
     const ids = [...new Set(apps.map(a => a.candidateId))];
@@ -39,10 +40,10 @@ export default function JobApplications() {
     entries.forEach(r => {
       if (r.status === 'fulfilled') {
         const [id, data] = r.value;
-        map[id] = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.fullName || `Candidate #${id}`;
+        map[id] = data; // store full profile
       }
     });
-    setNameMap(prev => ({ ...prev, ...map }));
+    setProfilesMap(prev => ({ ...prev, ...map }));
   }, []);
 
   useEffect(() => {
@@ -121,7 +122,13 @@ export default function JobApplications() {
                 <div className="app-card-left">
                   <div className="company-logo-sm">{app.candidateId}</div>
                   <div>
-                    <h3 className="app-job-title">{nameMap[app.candidateId] || `Candidate #${app.candidateId}`}</h3>
+                    <h3 
+                      className="app-job-title" 
+                      style={{ cursor: 'pointer', color: 'var(--accent)', textDecoration: 'underline' }}
+                      onClick={() => setSelectedProfile(profilesMap[app.candidateId] || { candidateId: app.candidateId, fallbackName: `Candidate #${app.candidateId}` })}
+                    >
+                      {profilesMap[app.candidateId]?.fullName || `Candidate #${app.candidateId}`}
+                    </h3>
                     <p className="app-meta">Applied {new Date(app.appliedAt).toLocaleDateString()}</p>
                     {app.coverLetter && (
                       <p className="app-cover">{app.coverLetter}</p>
@@ -251,6 +258,60 @@ export default function JobApplications() {
                 <button className="btn-secondary" onClick={() => setScheduleModal(null)}>Cancel</button>
                 <button className="btn-primary" onClick={handleScheduleInterview}>Schedule Interview</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Candidate Profile Modal */}
+      {selectedProfile && (
+        <div className="modal-overlay" onClick={() => setSelectedProfile(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3>Candidate Profile</h3>
+              <button className="icon-btn" onClick={() => setSelectedProfile(null)}>×</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.2rem' }}>
+                  {selectedProfile.fullName || selectedProfile.fallbackName}
+                </h4>
+                {selectedProfile.email && <p style={{ margin: '0 0 0.25rem 0', color: 'var(--text-secondary)' }}>Email: {selectedProfile.email}</p>}
+                {selectedProfile.mobile && <p style={{ margin: '0', color: 'var(--text-secondary)' }}>Mobile: {selectedProfile.mobile}</p>}
+              </div>
+
+              {selectedProfile.experienceYears != null && (
+                <div>
+                  <h5 style={{ margin: '0 0 0.25rem 0' }}>Experience</h5>
+                  <p style={{ margin: '0', color: 'var(--text-secondary)' }}>{selectedProfile.experienceYears} years</p>
+                </div>
+              )}
+
+              {selectedProfile.skills && selectedProfile.skills.length > 0 && (
+                <div>
+                  <h5 style={{ margin: '0 0 0.5rem 0' }}>Skills</h5>
+                  <div className="skills-list" style={{ gap: '0.25rem' }}>
+                    {selectedProfile.skills.map(s => <span className="skill-tag" style={{ padding: '0.25rem 0.5rem', fontSize: '0.8rem' }} key={s}>{s}</span>)}
+                  </div>
+                </div>
+              )}
+
+              {selectedProfile.resumeUrl ? (
+                <div>
+                  <h5 style={{ margin: '0 0 0.5rem 0' }}>Resume</h5>
+                  <a
+                    href={getResumeFullUrl(selectedProfile.resumeUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn-primary"
+                    style={{ textDecoration: 'none', display: 'inline-block', padding: '0.5rem 1rem' }}
+                  >
+                    View Original Resume
+                  </a>
+                </div>
+              ) : (
+                <p style={{ margin: '0', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No resume uploaded to profile.</p>
+              )}
             </div>
           </div>
         </div>

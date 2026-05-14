@@ -43,3 +43,10 @@ export const getPlatformInvoices = async () => {
   }
 };
 
+// ── Razorpay Payments ──
+export const createRazorpayOrder = (recruiterId, plan, amount) =>
+  api.post('/payments/create-order', { recruiterId, plan, amount });
+export const verifyRazorpayPayment = (payload) =>
+  api.post('/payments/verify', payload);
+export const getRazorpayKey = () => api.get('/payments/key');
+

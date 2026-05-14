@@ -192,11 +192,10 @@ export default function AdminDashboard() {
         <Card title="User Management">
           <div className="admin-filters-row">
             <input
-              className="form-input"
+              className="form-input admin-search-input"
               placeholder="Search by email or user ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="form-input admin-search-input"
             />
             <select className="form-input admin-select" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
               <option value="ALL">All Roles</option>
@@ -333,7 +332,29 @@ export default function AdminDashboard() {
           <div className="admin-controls-row">
             <button className="btn-secondary btn-sm" onClick={() => exportCsv('users')}>Export Users CSV</button>
             <button className="btn-secondary btn-sm" onClick={() => exportCsv('jobs')}>Export Jobs CSV</button>
-            <button className="btn-secondary btn-sm" disabled title="Coming soon">Export Billing Report (Coming Soon)</button>
+            <button className="btn-secondary btn-sm" onClick={() => {
+              const subsRows = subscriptions.map((s) => ({
+                subscriptionId: s.subscriptionId || '—', recruiterId: s.recruiterId, plan: s.plan, status: s.status,
+                startDate: s.startDate || '—', endDate: s.endDate || '—'
+              }));
+              const invRows = invoices.map((i) => ({
+                invoiceId: i.invoiceId || '—', subscriptionId: i.subscriptionId || '—',
+                amount: i.amount || 0, paymentMode: i.paymentMode || '—', paymentDate: i.paymentDate || '—'
+              }));
+              const allRows = subsRows.length > 0 ? subsRows : invRows;
+              if (allRows.length === 0) { setToast('No billing data to export.'); return; }
+              const headers = Object.keys(allRows[0]);
+              const escapeCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+              const csv = [headers.join(','), ...allRows.map((r) => headers.map((h) => escapeCell(r[h])).join(','))].join('\n');
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `hireconnect-billing-${new Date().toISOString().slice(0, 10)}.csv`;
+              link.click();
+              URL.revokeObjectURL(url);
+              setToast('Billing report exported.');
+            }}>Export Billing Report</button>
           </div>
         </Card>
         </section>

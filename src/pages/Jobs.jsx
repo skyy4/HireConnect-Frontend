@@ -32,7 +32,7 @@ export default function Jobs() {
     setError('');
     try {
       const res = await getAllJobs();
-      setJobs(res.data);
+      setJobs(res.data || []);
     } catch {
       setJobs([]);
       setError('Unable to load jobs right now. Please try again in a moment.');
@@ -71,7 +71,7 @@ export default function Jobs() {
       const params = {};
       Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
       const res = Object.keys(params).length ? await searchJobs(params) : await getAllJobs();
-      setJobs(res.data);
+      setJobs(res.data || []);
     } catch {
       setJobs([]);
       setError('Search failed. Please adjust filters and try again.');
